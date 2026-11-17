@@ -14,8 +14,8 @@ import type { ParsedTable } from './index';
  *   latitude/longitude columns for points.
  */
 
-type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
-type Obj = { [k: string]: Json };
+export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
+export type Obj = { [k: string]: Json };
 type FlatRow = Record<string, RawCell>;
 
 const MAX_DEPTH = 6;
@@ -234,7 +234,7 @@ export function tablesFromJsonLines(text: string, base: string): { tables: Parse
 const baseName = (f: File) => f.name.replace(/\.[^.]+$/, '');
 
 async function readText(file: File): Promise<string> {
-  return (await file.text()).replace(/^﻿/, '');
+  return (await file.text()).replace(/^\uFEFF/, '');
 }
 
 function withNotes(result: { tables: ParsedTable[]; notes: string[] }): ParsedTable[] {

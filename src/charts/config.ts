@@ -39,6 +39,24 @@ export function setRole(cfg: ChartConfig, role: FieldRole, value: string | null)
   }
 }
 
+/** Pick a date grouping that gives a useful number of points for the column's span. */
+export function bucketForSpan(ds: Dataset | undefined, field: string | null): ChartConfig['dateBucket'] {
+  if (!ds || !field) return 'month';
+  let min = '';
+  let max = '';
+  for (const r of ds.rows) {
+    const v = r[field];
+    if (typeof v !== 'string') continue;
+    if (!min || v < min) min = v;
+    if (!max || v > max) max = v;
+  }
+  const days = (Date.parse(max) - Date.parse(min)) / 86_400_000;
+  if (!Number.isFinite(days) || days <= 62) return 'day';
+  if (days <= 3 * 365) return 'month';
+  if (days <= 8 * 365) return 'quarter';
+  return 'year';
+}
+
 function applyPicks(cfg: ChartConfig, picks: Picks, ds: Dataset | undefined): ChartConfig {
   let next = { ...cfg };
   for (const [role, v] of Object.entries(picks) as [FieldRole, string | string[]][]) {
@@ -47,7 +65,7 @@ function applyPicks(cfg: ChartConfig, picks: Picks, ds: Dataset | undefined): Ch
   }
   next.aggregation = next.yFields.length ? 'sum' : 'count';
   const xType = ds?.columns.find((c) => c.name === next.xField)?.type;
-  next.dateBucket = xType === 'date' && CHART_DEFS[next.type].bucket ? (next.type === 'candlestick' ? 'day' : 'month') : 'none';
+  next.dateBucket = xType === 'date' && CHART_DEFS[next.type].bucket ? (next.type === 'candlestick' ? 'day' : bucketForSpan(ds, next.xField)) : 'none';
   return next;
 }
 

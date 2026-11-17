@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChartConfig, Dataset } from './types';
-import { parseFile, type ParsedTable } from './lib/parsers';
+import { needsValidation, parseFile } from './lib/parsers';
+import { checkFile, toDataset, type FileReport } from './lib/validate';
+import { FileCheckDialog } from './components/FileCheckDialog';
 import { SAMPLES, starterChartsFor, type SampleDef } from './lib/sample';
 import { normalizeConfig } from './charts/config';
 import { loadWorkspace, saveWorkspace, type ThemePref } from './lib/storage';
@@ -13,7 +15,7 @@ import { FileDrop } from './components/FileDrop';
 import { IconEye, IconFile, IconMonitor, IconMoon, IconPlus, IconSun, IconTrash, IconUpload } from './components/icons';
 import { ACCEPT_ATTR } from './lib/parsers';
 
-type ModalState = { kind: 'add' } | { kind: 'edit'; cfg: ChartConfig } | { kind: 'preview'; id: string } | null;
+type ModalState = { kind: 'add' } | { kind: 'edit'; cfg: ChartConfig } | { kind: 'preview'; id: string } | { kind: 'check'; reports: FileReport[] } | null;
 interface Toast {
   id: number;
   message: string;
@@ -22,9 +24,6 @@ interface Toast {
   duration?: number;
 }
 
-function toDataset(t: ParsedTable, fileName: string): Dataset {
-  return { id: uid('d_'), name: t.name, fileName, columns: t.columns, rows: t.rows, createdAt: Date.now() };
-}
 
 export function App() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -67,15 +66,24 @@ export function App() {
 
   const handleFiles = async (files: File[]) => {
     setBusy(true);
+    // CSV and Excel are tabular already and load directly. Every other format
+    // (TSV, JSON, XML, SQL, SQLite, unknown) is checked for visualisable data first.
+    const toCheck = files.filter((f) => needsValidation(f.name));
+    const direct = files.filter((f) => !needsValidation(f.name));
+    if (toCheck.length) {
+      const reports = await Promise.all(toCheck.map(checkFile));
+      setModal({ kind: 'check', reports });
+    }
     const added: Dataset[] = [];
     const notes: string[] = [];
-    for (const f of files) {
+    for (const f of direct) {
       try {
         const tables = await parseFile(f);
         added.push(...tables.map((t) => toDataset(t, f.name)));
-        notes.push(...tables.flatMap((t) => t.notes ?? []));
+        const fileNotes = tables.flatMap((t) => t.notes ?? []);
         const nested = tables.filter((t) => t.name.includes(' › '));
-        if (nested.length) notes.push(`Nested lists became linked tables: ${nested.map((t) => t.name.split(' › ').slice(1).join(' › ')).join(', ')}.`);
+        if (nested.length) fileNotes.push(`Nested lists became linked tables: ${nested.map((t) => t.name.split(' › ').slice(1).join(' › ')).join(', ')}.`);
+        if (fileNotes.length) notes.push(files.length > 1 ? `${f.name}: ${fileNotes.join(' ')}` : fileNotes.join(' '));
       } catch (e) {
         toast({ message: (e as Error).message, tone: 'error' });
       }
@@ -92,6 +100,15 @@ export function App() {
       });
       if (notes.length) toast({ message: notes.join(' '), tone: 'info', duration: 9000 });
     }
+  };
+
+  /** After the file check: add the chosen tables and land on the dashboard with the chart picker open. */
+  const acceptChecked = (picked: Dataset[]) => {
+    setDatasets((d) => [...d, ...picked]);
+    setActiveId(picked[0].id);
+    toast({ message: `Added ${picked.length === 1 ? picked[0].name : `${picked.length} tables`}. Pick a chart to start your dashboard.`, tone: 'info' });
+    setModal({ kind: 'add' });
+    requestAnimationFrame(() => document.querySelector('[aria-label="Dashboard"]')?.scrollIntoView({ block: 'start' }));
   };
 
   const loadSample = (sample: SampleDef = SAMPLES[0]) => {
@@ -259,6 +276,7 @@ export function App() {
 
       {modal?.kind === 'add' && <AddChartModal datasets={datasets} defaultDatasetId={activeId} onSubmit={submitChart} onClose={() => setModal(null)} />}
       {modal?.kind === 'edit' && <AddChartModal datasets={datasets} defaultDatasetId={activeId} initial={modal.cfg} onSubmit={submitChart} onClose={() => setModal(null)} />}
+      {modal?.kind === 'check' && <FileCheckDialog reports={modal.reports} onCancel={() => setModal(null)} onContinue={acceptChecked} />}
       {modal?.kind === 'preview' && datasets.find((d) => d.id === modal.id) && (
         <DatasetPreview dataset={datasets.find((d) => d.id === modal.id)!} onClose={() => setModal(null)} />
       )}

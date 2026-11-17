@@ -3,7 +3,7 @@ import type { Aggregation, ChartConfig, ChartType, Dataset, DateBucket } from '.
 import { AGG_LABEL, distinctCategories } from '../lib/aggregate';
 import { CHART_DEFS, CHART_TYPES, GROUP_ORDER, type FieldSpec, type Suggestion } from '../charts/registry';
 import { profileDataset } from '../charts/profile';
-import { autoTitle, blankConfig, getRole, retarget, setRole, validate } from '../charts/config';
+import { autoTitle, blankConfig, bucketForSpan, getRole, retarget, setRole, validate } from '../charts/config';
 import { Modal } from './Modal';
 import { ChartRenderer } from './ChartRenderer';
 import { ChartTypeIcon, IconBack } from './icons';
@@ -319,7 +319,7 @@ function FieldControl({ spec, cfg, setCfg, ds }: { spec: FieldSpec; cfg: ChartCo
             let next = setRole(c, spec.role, v);
             if (spec.role === 'x') {
               const col = ds.columns.find((col) => col.name === v);
-              next = { ...next, dateBucket: col?.type === 'date' && CHART_DEFS[c.type].bucket ? (c.type === 'candlestick' ? 'day' : 'month') : 'none' };
+              next = { ...next, dateBucket: col?.type === 'date' && CHART_DEFS[c.type].bucket ? (c.type === 'candlestick' ? 'day' : bucketForSpan(ds, v)) : 'none' };
             }
             return next;
           });

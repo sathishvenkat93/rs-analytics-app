@@ -3,7 +3,7 @@ import type { CellValue, Column, ColumnType, Row } from '../types';
 export type RawCell = string | number | boolean | Date | null | undefined;
 
 const NUMBER_RE = /^[-+]?[$€£₹¥]?\s*[-+]?(\d{1,3}(,\d{3})+|\d+)?(\.\d+)?\s*%?$/;
-const ISO_DATE_RE = /^\d{4}-\d{1,2}-\d{1,2}([T\s]\d{1,2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+const ISO_DATE_RE = /^\d{4}-\d{1,2}-\d{1,2}([T\s]\d{1,2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}(:?\d{2})?)?)?$/;
 const SLASH_DATE_RE = /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/;
 const MONTH_NAME_RE = /^(\d{1,2}\s)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s,-]+\d{1,4}(,?\s\d{4})?$/i;
 

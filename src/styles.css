@@ -749,13 +749,17 @@ select {
   position: fixed;
   inset: 0;
   z-index: 50;
-  display: grid;
-  place-items: center;
+  /* Flex, not grid: a grid track grows to the content's min width (wide tables), pushing the dialog off-centre. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 16px;
   background: rgba(0, 0, 0, 0.42);
 }
 .modal {
   width: min(720px, 100%);
+  min-width: 0;
+  max-width: 100%;
   max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
@@ -781,6 +785,7 @@ select {
 .modal-body {
   padding: 16px 20px;
   overflow: auto;
+  min-width: 0;
 }
 .modal-footer {
   display: flex;
@@ -1354,6 +1359,146 @@ select {
 .sparkline-delta {
   font-size: 13px;
   font-weight: 600;
+}
+
+/* ---------- file check ---------- */
+.file-checks {
+  display: grid;
+  gap: 14px;
+}
+.file-check {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+  border-left: 4px solid var(--good-ink);
+}
+.file-check.verdict-limited {
+  border-left-color: var(--warn-ink);
+}
+.file-check.verdict-unusable {
+  border-left-color: var(--no-ink);
+}
+.file-check-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.file-check-title {
+  flex: 1;
+  min-width: 0;
+}
+.check-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--no-bg);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.check-error strong {
+  color: var(--text-primary);
+}
+.check-notes {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.check-bulk {
+  display: flex;
+  gap: 14px;
+  font-size: 12.5px;
+}
+.table-check {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.table-check.disabled .table-check-name {
+  color: var(--muted);
+}
+.table-check-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+.table-check-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 160px;
+  cursor: pointer;
+}
+.table-check-pick input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+.table-check-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.check-list-items {
+  list-style: none;
+  margin: 8px 0 2px 24px;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+.check-item {
+  display: grid;
+  grid-template-columns: 18px minmax(120px, 160px) 1fr;
+  align-items: start;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.check-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 1px;
+}
+.check-pass .check-icon {
+  background: var(--good-ink);
+}
+.check-warn .check-icon {
+  background: var(--warn-ink);
+}
+.check-fail .check-icon {
+  background: var(--no-ink);
+}
+.check-fits .check-icon {
+  background: var(--accent);
+}
+.check-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.check-detail {
+  color: var(--text-secondary);
+}
+.check-summary {
+  margin-right: auto;
+}
+@media (max-width: 680px) {
+  .check-item {
+    grid-template-columns: 18px 1fr;
+  }
+  .check-detail {
+    grid-column: 2;
+  }
+  .check-list-items {
+    margin-left: 0;
+  }
 }
 
 /* ---------- sample menu ---------- */

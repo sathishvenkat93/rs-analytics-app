@@ -66,7 +66,9 @@ export function profileDataset(ds: Dataset): DatasetProfile {
   const numeric = columns.filter((c) => c.type === 'number' && c.nonNull > 0);
   const dates = columns.filter((c) => c.type === 'date' && c.distinct > 1);
   const strings = columns.filter((c) => c.type === 'string' && c.nonNull > 0);
-  const categories = strings.filter((c) => c.distinct >= 2 && c.distinct <= 60);
+  // A text column whose values are (almost) all unique is an identifier, not a category.
+  const idLike = (c: ColumnProfile) => (ds.rows.length > 10 && c.distinct >= c.nonNull * 0.9) || /(^id$|[_\s.-]id$|^uuid$|^guid$)/i.test(c.name);
+  const categories = strings.filter((c) => c.distinct >= 2 && c.distinct <= 60 && !idLike(c));
   const labels = strings.filter((c) => c.distinct > 60 || (c.distinct > 1 && c.distinct >= ds.rows.length * 0.8));
 
   const latCol = numeric.find((c) => /^(lat|latitude)$|[_\s]lat(itude)?$/i.test(c.name) && c.min >= -90 && c.max <= 90);
