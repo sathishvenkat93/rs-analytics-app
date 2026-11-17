@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChartConfig, Dataset } from './types';
-import { DEFAULT_OPTIONS } from './types';
 import { parseFile, type ParsedTable } from './lib/parsers';
-import { sampleSalesData } from './lib/sample';
+import { SAMPLES, starterChartsFor, type SampleDef } from './lib/sample';
+import { normalizeConfig } from './charts/config';
 import { loadWorkspace, saveWorkspace, type ThemePref } from './lib/storage';
 import { useTheme } from './lib/theme';
 import { uid } from './lib/id';
@@ -19,22 +19,11 @@ interface Toast {
   message: string;
   tone: 'info' | 'error';
   action?: { label: string; run: () => void };
+  duration?: number;
 }
 
 function toDataset(t: ParsedTable, fileName: string): Dataset {
   return { id: uid('d_'), name: t.name, fileName, columns: t.columns, rows: t.rows, createdAt: Date.now() };
-}
-
-function starterCharts(ds: Dataset): ChartConfig[] {
-  const base = { datasetId: ds.id, includeCategories: null, dateBucket: 'none' as const, aggregation: 'sum' as const };
-  return [
-    { ...base, id: uid('c_'), type: 'kpi', title: 'Total revenue', xField: null, yFields: ['Revenue'], options: { ...DEFAULT_OPTIONS, width: 'third' } },
-    { ...base, id: uid('c_'), type: 'kpi', title: 'Total profit', xField: null, yFields: ['Profit'], options: { ...DEFAULT_OPTIONS, width: 'third' } },
-    { ...base, id: uid('c_'), type: 'kpi', title: 'Orders', xField: null, yFields: [], aggregation: 'count', options: { ...DEFAULT_OPTIONS, width: 'third' } },
-    { ...base, id: uid('c_'), type: 'line', title: 'Revenue & profit by month', xField: 'Order Date', dateBucket: 'month', yFields: ['Revenue', 'Profit'], options: { ...DEFAULT_OPTIONS, width: 'full' } },
-    { ...base, id: uid('c_'), type: 'bar', title: 'Revenue & profit by region', xField: 'Region', yFields: ['Revenue', 'Profit'], options: { ...DEFAULT_OPTIONS, sort: 'desc', showLabels: false } },
-    { ...base, id: uid('c_'), type: 'pie', title: 'Revenue share by category', xField: 'Category', yFields: ['Revenue'], options: { ...DEFAULT_OPTIONS } },
-  ];
 }
 
 export function App() {
@@ -50,7 +39,7 @@ export function App() {
   const toast = useCallback((t: Omit<Toast, 'id'>) => {
     const id = Date.now() + Math.random();
     setToasts((ts) => [...ts.slice(-2), { ...t, id }]);
-    setTimeout(() => setToasts((ts) => ts.filter((x) => x.id !== id)), t.action ? 6000 : 4000);
+    setTimeout(() => setToasts((ts) => ts.filter((x) => x.id !== id)), t.duration ?? (t.action ? 6000 : 4000));
   }, []);
 
   // Restore the last workspace from this browser.
@@ -58,7 +47,7 @@ export function App() {
     loadWorkspace().then((ws) => {
       if (ws) {
         setDatasets(ws.datasets);
-        setCharts(ws.charts);
+        setCharts(ws.charts.map(normalizeConfig));
         setActiveId(ws.datasets[0]?.id ?? null);
       }
       setLoaded(true);
@@ -79,10 +68,14 @@ export function App() {
   const handleFiles = async (files: File[]) => {
     setBusy(true);
     const added: Dataset[] = [];
+    const notes: string[] = [];
     for (const f of files) {
       try {
         const tables = await parseFile(f);
         added.push(...tables.map((t) => toDataset(t, f.name)));
+        notes.push(...tables.flatMap((t) => t.notes ?? []));
+        const nested = tables.filter((t) => t.name.includes(' › '));
+        if (nested.length) notes.push(`Nested lists became linked tables: ${nested.map((t) => t.name.split(' › ').slice(1).join(' › ')).join(', ')}.`);
       } catch (e) {
         toast({ message: (e as Error).message, tone: 'error' });
       }
@@ -97,13 +90,14 @@ export function App() {
         tone: 'info',
         action: { label: 'Add chart', run: () => setModal({ kind: 'add' }) },
       });
+      if (notes.length) toast({ message: notes.join(' '), tone: 'info', duration: 9000 });
     }
   };
 
-  const loadSample = () => {
-    const ds = toDataset(sampleSalesData(), 'sample-sales.csv');
+  const loadSample = (sample: SampleDef = SAMPLES[0]) => {
+    const ds = toDataset(sample.build(), sample.file);
     setDatasets((d) => [...d, ds]);
-    setCharts((c) => [...c, ...starterCharts(ds)]);
+    setCharts((c) => [...c, ...starterChartsFor(sample, ds)]);
     setActiveId(ds.id);
   };
 
@@ -178,9 +172,7 @@ export function App() {
             <h1>Turn a spreadsheet into a dashboard</h1>
             <p className="muted">Upload sales or any tabular data, pick the columns to plot, and arrange chart widgets by dragging them.</p>
             <FileDrop onFiles={handleFiles} busy={busy}>
-              <button type="button" className="btn" onClick={loadSample}>
-                Try sample sales data
-              </button>
+              <SampleMenu onPick={loadSample} label="Try sample data" />
             </FileDrop>
             <p className="muted small">Files are read in your browser and never uploaded to a server.</p>
           </section>
@@ -189,6 +181,7 @@ export function App() {
             <section className="sources" aria-label="Data sources">
               <div className="section-head">
                 <h2>Data sources</h2>
+                <SampleMenu onPick={loadSample} label="Add sample" small />
               </div>
               <div className="source-list">
                 {datasets.map((d) => (
@@ -307,6 +300,48 @@ function ThemeSwitch() {
           {o.icon}
         </button>
       ))}
+    </div>
+  );
+}
+
+function SampleMenu({ onPick, label, small }: { onPick: (s: SampleDef) => void; label: string; small?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+  return (
+    <div className="menu-wrap" ref={ref}>
+      <button type="button" className={small ? 'link-btn' : 'btn'} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {label} ▾
+      </button>
+      {open && (
+        <div className="menu" role="menu">
+          {SAMPLES.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="menuitem"
+              className="menu-item"
+              onClick={() => {
+                onPick(s);
+                setOpen(false);
+              }}
+            >
+              <span className="menu-label">{s.label}</span>
+              <span className="menu-hint">{s.hint}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

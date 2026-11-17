@@ -17,7 +17,40 @@ export interface Dataset {
   createdAt: number;
 }
 
-export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'scatter' | 'kpi';
+export type ChartType =
+  | 'bar'
+  | 'column'
+  | 'histogram'
+  | 'line'
+  | 'pie'
+  | 'kpi'
+  | 'donut'
+  | 'treemap'
+  | 'pareto'
+  | 'radar'
+  | 'funnel'
+  | 'waterfall'
+  | 'stacked'
+  | 'scatter'
+  | 'bubble'
+  | 'sankey'
+  | 'area'
+  | 'step'
+  | 'candlestick'
+  | 'sparkline'
+  | 'geo'
+  | 'scattermap'
+  | 'geobubble'
+  | 'heatmap'
+  | 'boxplot'
+  | 'pictograph'
+  | 'gantt'
+  | 'dotplot';
+
+/** Column slots beyond label (x) and values (y). */
+export type ExtraRole = 'open' | 'high' | 'low' | 'close' | 'start' | 'end' | 'lat' | 'lon';
+/** Every column slot a chart type can ask for. */
+export type FieldRole = 'x' | 'y' | 'group' | 'size' | ExtraRole;
 export type Aggregation = 'sum' | 'avg' | 'count' | 'min' | 'max';
 export type DateBucket = 'none' | 'day' | 'month' | 'quarter' | 'year';
 export type SortOrder = 'none' | 'asc' | 'desc';
@@ -32,6 +65,8 @@ export interface ChartOptions {
   donut: boolean;
   width: 'third' | 'half' | 'full';
   showTable: boolean;
+  /** Histogram bin count. */
+  bins: number;
 }
 
 export interface ChartConfig {
@@ -43,6 +78,12 @@ export interface ChartConfig {
   xField: string | null;
   /** Value columns. Pie, scatter and KPI use the first one. Empty + count = row count. */
   yFields: string[];
+  /** Secondary category: stack split, heatmap rows, Sankey target, treemap child, Gantt colour. */
+  groupField: string | null;
+  /** Bubble size measure. */
+  sizeField: string | null;
+  /** OHLC, start/end dates, latitude/longitude. */
+  extra: Partial<Record<ExtraRole, string>>;
   aggregation: Aggregation;
   dateBucket: DateBucket;
   /** Category values to keep. null = keep all. */
@@ -59,4 +100,5 @@ export const DEFAULT_OPTIONS: ChartOptions = {
   donut: true,
   width: 'half',
   showTable: false,
+  bins: 0,
 };

@@ -10,4 +10,4 @@ npm run dev        # http://localhost:5173
 npm run build      # type-check + production build into dist/
 ```
 
-Stack: React 18, TypeScript, Vite, Recharts, dnd-kit, PapaParse, SheetJS.
+Stack: React 18, TypeScript, Vite, Recharts, dnd-kit, PapaParse, SheetJS, d3-geo (maps).

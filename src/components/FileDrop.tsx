@@ -29,8 +29,8 @@ export function FileDrop({ onFiles, busy, children, compact }: Props) {
         <path d="M12 16V4M7 9l5-5 5 5" />
         <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
       </svg>
-      <p className="file-drop-title">{busy ? 'Reading file…' : 'Drop a CSV or Excel file here'}</p>
-      <p className="file-drop-sub">.csv and .xlsx supported · first row should hold column headers</p>
+      <p className="file-drop-title">{busy ? 'Reading file…' : 'Drop a CSV, Excel or JSON file here'}</p>
+      <p className="file-drop-sub">.csv, .xlsx, .json and .jsonl supported · nested JSON is flattened into columns</p>
       <div className="file-drop-actions">
         <button type="button" className="btn btn-primary" onClick={() => input.current?.click()} disabled={busy}>
           Choose file

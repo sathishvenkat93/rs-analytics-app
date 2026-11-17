@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
 import {
   Area,
   AreaChart,
@@ -17,6 +17,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  ZAxis,
   type TooltipProps,
 } from 'recharts';
 import type { ChartConfig, Dataset } from '../types';
@@ -34,6 +35,13 @@ import { axisFormatter, formatCompact, formatPercent, formatValue, truncate } fr
 import { seriesColor, type ChartTheme } from '../lib/palette';
 import { useTheme } from '../lib/theme';
 import { DataTable } from './DataTable';
+import { Empty, Legend, TooltipCard, axisProps } from './charts/common';
+import { aggregateSplit } from '../charts/data';
+import { CandlestickView, FunnelView, HistogramView, ParetoView, RadarView, SankeyView, SparklineView, TreemapView, WaterfallView } from './charts/MoreCharts';
+import { BoxPlotView, DotPlotView, GanttView, HeatmapView, PictographView } from './charts/SvgCharts';
+
+// Map shapes are ~250 KB, so geo charts load on first use.
+const GeoView = lazy(() => import('./charts/GeoCharts').then((m) => ({ default: m.GeoView })));
 
 interface Props {
   dataset: Dataset;
@@ -43,75 +51,73 @@ interface Props {
 
 export function ChartRenderer({ dataset, config, height = 300 }: Props) {
   const { chart: theme } = useTheme();
+  const p = { dataset, config, theme, height };
   switch (config.type) {
     case 'bar':
+    case 'column':
+    case 'stacked':
     case 'line':
     case 'area':
-      return <CategoryChart dataset={dataset} config={config} theme={theme} height={height} />;
+    case 'step':
+      return <CategoryChart {...p} />;
     case 'pie':
-      return <PieView dataset={dataset} config={config} theme={theme} height={height} />;
+    case 'donut':
+      return <PieView {...p} />;
     case 'scatter':
-      return <ScatterView dataset={dataset} config={config} theme={theme} height={height} />;
+    case 'bubble':
+      return <ScatterView {...p} />;
     case 'kpi':
       return <KpiView dataset={dataset} config={config} />;
+    case 'histogram':
+      return <HistogramView {...p} />;
+    case 'pareto':
+      return <ParetoView {...p} />;
+    case 'radar':
+      return <RadarView {...p} />;
+    case 'funnel':
+      return <FunnelView {...p} />;
+    case 'waterfall':
+      return <WaterfallView {...p} />;
+    case 'treemap':
+      return <TreemapView {...p} />;
+    case 'sankey':
+      return <SankeyView {...p} />;
+    case 'candlestick':
+      return <CandlestickView {...p} />;
+    case 'sparkline':
+      return <SparklineView {...p} />;
+    case 'heatmap':
+      return <HeatmapView {...p} />;
+    case 'boxplot':
+      return <BoxPlotView {...p} />;
+    case 'pictograph':
+      return <PictographView {...p} />;
+    case 'gantt':
+      return <GanttView {...p} />;
+    case 'dotplot':
+      return <DotPlotView {...p} />;
+    case 'geo':
+    case 'scattermap':
+    case 'geobubble':
+      return (
+        <Suspense fallback={<Empty height={height} message="Loading map…" />}>
+          <GeoView {...p} />
+        </Suspense>
+      );
   }
-}
-
-/* ---------- shared pieces ---------- */
-
-function Empty({ height, message = 'No data for this selection.' }: { height: number; message?: string }) {
-  return (
-    <div className="chart-empty" style={{ height }}>
-      {message}
-    </div>
-  );
-}
-
-function Legend({ items }: { items: { label: string; color: string }[] }) {
-  return (
-    <ul className="legend" aria-label="Legend">
-      {items.map((it) => (
-        <li key={it.label}>
-          <span className="swatch" style={{ background: it.color }} aria-hidden />
-          {it.label}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function TooltipCard({ title, rows }: { title?: string; rows: { label: string; value: string; color?: string }[] }) {
-  return (
-    <div className="tooltip-card">
-      {title && <div className="tooltip-title">{title}</div>}
-      {rows.map((r) => (
-        <div className="tooltip-row" key={r.label}>
-          {r.color && <span className="swatch" style={{ background: r.color }} aria-hidden />}
-          <span className="tooltip-label">{r.label}</span>
-          <span className="tooltip-value">{r.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function axisProps(theme: ChartTheme) {
-  return {
-    stroke: theme.axis,
-    tick: { fill: theme.muted, fontSize: 12 },
-    tickLine: false,
-  } as const;
 }
 
 /* ---------- bar / line / area ---------- */
 
 function CategoryChart({ dataset, config, theme, height }: Props & { theme: ChartTheme; height: number }) {
-  const result = useMemo(() => aggregateCategories(dataset, config), [dataset, config]);
+  const split = config.type === 'stacked' && !!config.groupField;
+  const result = useMemo(() => (split ? aggregateSplit(dataset, config) : aggregateCategories(dataset, config)), [dataset, config, split]);
   const { data, series, totalCategories } = result;
   if (data.length === 0) return <Empty height={height} />;
 
   const { stacked, horizontal, showLabels, showTable, topN } = config.options;
-  const isStacked = stacked && series.length > 1;
+  const isBar = config.type === 'bar' || config.type === 'column' || config.type === 'stacked';
+  const isStacked = (stacked || config.type === 'stacked') && series.length > 1;
   const maxAbs = computeMax(result, isStacked);
   const fmt = axisFormatter(maxAbs);
   const many = data.length > 8;
@@ -134,7 +140,7 @@ function CategoryChart({ dataset, config, theme, height }: Props & { theme: Char
   const margin = { top: showLabels ? 20 : 8, right: horizontal && showLabels ? 48 : 12, bottom: 4, left: 0 };
 
   let chart: JSX.Element;
-  if (config.type === 'bar') {
+  if (isBar) {
     chart = (
       <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={margin} barGap={2} barCategoryGap="20%">
         {grid}
@@ -188,7 +194,8 @@ function CategoryChart({ dataset, config, theme, height }: Props & { theme: Char
     );
   } else {
     const showDots = data.length <= 40;
-    const Chart = config.type === 'line' ? LineChart : AreaChart;
+    const isLine = config.type === 'line' || config.type === 'step';
+    const Chart = isLine ? LineChart : AreaChart;
     chart = (
       <Chart data={data} margin={margin}>
         {grid}
@@ -215,8 +222,8 @@ function CategoryChart({ dataset, config, theme, height }: Props & { theme: Char
                 style={{ fill: theme.textSecondary, fontSize: 11 }}
               />
             ) : null;
-          return config.type === 'line' ? (
-            <Line key={s.key} type="linear" dataKey={s.key} name={s.label} stroke={c} strokeWidth={2} dot={dot} activeDot={activeDot} animationDuration={400}>
+          return isLine ? (
+            <Line key={s.key} type={config.type === 'step' ? 'stepAfter' : 'linear'} dataKey={s.key} name={s.label} stroke={c} strokeWidth={2} dot={dot} activeDot={activeDot} animationDuration={400}>
               {label}
             </Line>
           ) : (
@@ -286,7 +293,8 @@ function PieView({ dataset, config, theme, height }: Props & { theme: ChartTheme
   const result: PieResult = useMemo(() => aggregatePie(dataset, config), [dataset, config]);
   const { slices, total, totalCategories, valueLabel } = result;
   if (slices.length === 0) return <Empty height={height} message="No positive values to compose." />;
-  const { donut, showLabels, showTable } = config.options;
+  const { showLabels, showTable } = config.options;
+  const donut = config.type === 'donut';
 
   if (showTable) {
     return (
@@ -388,6 +396,7 @@ function ScatterView({ dataset, config, theme, height }: Props & { theme: ChartT
   const yMax = Math.max(...points.map((p) => Math.abs(p.y)));
   const xName = config.xField ?? 'x';
   const yName = config.yFields[0] ?? 'y';
+  const zName = config.type === 'bubble' ? config.sizeField : null;
   const c = seriesColor(theme, 0);
 
   if (config.options.showTable) {
@@ -397,6 +406,7 @@ function ScatterView({ dataset, config, theme, height }: Props & { theme: ChartT
           columns={[
             { key: 'x', label: xName, numeric: true },
             { key: 'y', label: yName, numeric: true },
+            ...(zName ? [{ key: 'z', label: zName, numeric: true }] : []),
           ]}
           rows={points}
           maxHeight={height}
@@ -420,16 +430,18 @@ function ScatterView({ dataset, config, theme, height }: Props & { theme: ChartT
               label={{ value: xName, position: 'insideBottom', offset: -8, fill: theme.textSecondary, fontSize: 12 }}
             />
             <YAxis type="number" dataKey="y" name={yName} {...axisProps(theme)} axisLine={false} tickFormatter={axisFormatter(yMax)} width={56} />
+            {zName && <ZAxis type="number" dataKey="z" range={[30, 900]} name={zName} />}
             <Tooltip
               cursor={{ stroke: theme.axis, strokeDasharray: undefined }}
               content={(p: TooltipProps<number, string>) => {
                 if (!p.active || !p.payload?.length) return null;
-                const d = p.payload[0].payload as { x: number; y: number };
+                const d = p.payload[0].payload as { x: number; y: number; z?: number };
                 return (
                   <TooltipCard
                     rows={[
                       { label: xName, value: formatValue(d.x) },
                       { label: yName, value: formatValue(d.y) },
+                      ...(zName && d.z !== undefined ? [{ label: zName, value: formatValue(d.z) }] : []),
                     ]}
                   />
                 );
@@ -439,8 +451,16 @@ function ScatterView({ dataset, config, theme, height }: Props & { theme: ChartT
               data={points}
               fill={c}
               isAnimationActive={false}
-              shape={(props: { cx?: number; cy?: number }) => (
-                <circle cx={props.cx} cy={props.cy} r={4} fill={c} fillOpacity={0.75} stroke={theme.surface} strokeWidth={1.5} />
+              shape={(props: { cx?: number; cy?: number; size?: number }) => (
+                <circle
+                  cx={props.cx}
+                  cy={props.cy}
+                  r={zName ? Math.max(3, Math.sqrt((props.size ?? 64) / Math.PI)) : 4}
+                  fill={c}
+                  fillOpacity={zName ? 0.45 : 0.75}
+                  stroke={zName ? c : theme.surface}
+                  strokeWidth={zName ? 1 : 1.5}
+                />
               )}
             />
           </ScatterChart>

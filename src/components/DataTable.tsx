@@ -9,7 +9,7 @@ export interface TableColumn {
 
 interface Props {
   columns: TableColumn[];
-  rows: Record<string, unknown>[];
+  rows: object[];
   maxHeight?: number;
   limit?: number;
 }
@@ -33,7 +33,7 @@ export function DataTable({ columns, rows, maxHeight = 320, limit = 500 }: Props
           {shown.map((r, i) => (
             <tr key={i}>
               {columns.map((c) => {
-                const v = r[c.key];
+                const v = (r as Record<string, unknown>)[c.key];
                 return (
                   <td key={c.key} className={c.numeric ? 'num' : undefined}>
                     {v === null || v === undefined ? <span className="muted">—</span> : typeof v === 'number' ? formatValue(v) : String(v)}

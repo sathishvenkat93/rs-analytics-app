@@ -201,7 +201,7 @@ export function aggregatePie(ds: Dataset, cfg: ChartConfig): PieResult {
 }
 
 export interface ScatterResult {
-  points: { x: number; y: number }[];
+  points: { x: number; y: number; z?: number }[];
   totalPoints: number;
 }
 
@@ -211,11 +211,16 @@ export function aggregateScatter(ds: Dataset, cfg: ChartConfig): ScatterResult {
   const xf = cfg.xField;
   const yf = cfg.yFields[0];
   if (!xf || !yf) return { points: [], totalPoints: 0 };
-  const all: { x: number; y: number }[] = [];
+  const zf = cfg.type === 'bubble' ? cfg.sizeField : null;
+  const all: { x: number; y: number; z?: number }[] = [];
   for (const row of ds.rows) {
     const x = row[xf];
     const y = row[yf];
-    if (typeof x === 'number' && typeof y === 'number') all.push({ x, y });
+    if (typeof x !== 'number' || typeof y !== 'number') continue;
+    if (zf) {
+      const z = row[zf];
+      if (typeof z === 'number' && z >= 0) all.push({ x, y, z });
+    } else all.push({ x, y });
   }
   if (all.length <= MAX_POINTS) return { points: all, totalPoints: all.length };
   const step = all.length / MAX_POINTS;
