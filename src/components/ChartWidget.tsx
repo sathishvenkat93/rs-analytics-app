@@ -9,7 +9,7 @@ import { defaultBinCount } from '../charts/data';
 import { InfoButton } from './ChartInfo';
 import { ChartRenderer } from './ChartRenderer';
 import { Segmented } from './Segmented';
-import { IconCopy, IconEdit, IconGrip, IconSliders, IconTable, IconTrash, IconWidth } from './icons';
+import { IconCopy, IconEdit, IconGrip, IconSliders, IconTable, IconTrash, IconWidth, IconSparkle } from './icons';
 
 interface Props {
   config: ChartConfig;
@@ -18,12 +18,14 @@ interface Props {
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  /** Open this chart in the chart assistant (only when AI is available). */
+  onRefine?: () => void;
 }
 
 const WIDTHS: ChartOptions['width'][] = ['third', 'half', 'full'];
 const WIDTH_LABEL: Record<ChartOptions['width'], string> = { third: 'Small', half: 'Medium', full: 'Wide' };
 
-export function ChartWidget({ config, dataset, onChange, onEdit, onDuplicate, onDelete }: Props) {
+export function ChartWidget({ config, dataset, onChange, onEdit, onDuplicate, onDelete, onRefine }: Props) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: config.id });
   const hasControls = controlsFor(config, dataset).length > 0;
   const [controlsOpen, setControlsOpen] = useState(hasControls);
@@ -67,6 +69,11 @@ export function ChartWidget({ config, dataset, onChange, onEdit, onDuplicate, on
           <ToolButton label={`Size: ${WIDTH_LABEL[opts.width]} (click for ${WIDTH_LABEL[nextWidth]})`} onClick={() => setOpt({ width: nextWidth })}>
             <IconWidth size={16} />
           </ToolButton>
+          {onRefine && (
+            <ToolButton label="Refine with AI" onClick={onRefine}>
+              <IconSparkle size={16} />
+            </ToolButton>
+          )}
           <ToolButton label="Edit chart" onClick={onEdit}>
             <IconEdit size={16} />
           </ToolButton>

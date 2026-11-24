@@ -15,6 +15,8 @@ export interface Dataset {
   columns: Column[];
   rows: Row[];
   createdAt: number;
+  /** Set for datasets produced by a SQL query over other datasets. */
+  source?: { kind: 'query'; sql: string };
 }
 
 export type ChartType =
@@ -102,3 +104,13 @@ export const DEFAULT_OPTIONS: ChartOptions = {
   showTable: false,
   bins: 0,
 };
+
+/** A named, saved dashboard: an ordered list of chart widgets. */
+export interface DashboardDoc {
+  id: string;
+  name: string;
+  charts: ChartConfig[];
+  createdAt: number;
+  updatedAt: number;
+  origin: 'manual' | 'ai' | 'sample';
+}

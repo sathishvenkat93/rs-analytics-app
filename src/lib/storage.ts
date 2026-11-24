@@ -1,4 +1,4 @@
-import type { ChartConfig, Dataset } from '../types';
+import type { ChartConfig, DashboardDoc, Dataset } from '../types';
 
 /**
  * Persists the workspace in IndexedDB (localStorage's ~5 MB cap is too small
@@ -6,7 +6,10 @@ import type { ChartConfig, Dataset } from '../types';
  */
 export interface Workspace {
   datasets: Dataset[];
-  charts: ChartConfig[];
+  dashboards: DashboardDoc[];
+  activeDashboardId: string | null;
+  /** v1 kept a single list of charts; read for migration only. */
+  charts?: ChartConfig[];
 }
 
 const DB_NAME = 'rs-analytics';

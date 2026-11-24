@@ -19,9 +19,10 @@ interface Props {
   onEdit: (cfg: ChartConfig) => void;
   onDuplicate: (cfg: ChartConfig) => void;
   onDelete: (cfg: ChartConfig) => void;
+  onRefine?: (cfg: ChartConfig) => void;
 }
 
-export function Dashboard({ charts, datasets, onReorder, onChange, onEdit, onDuplicate, onDelete }: Props) {
+export function Dashboard({ charts, datasets, onReorder, onChange, onEdit, onDuplicate, onDelete, onRefine }: Props) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -47,6 +48,7 @@ export function Dashboard({ charts, datasets, onReorder, onChange, onEdit, onDup
               onEdit={() => onEdit(c)}
               onDuplicate={() => onDuplicate(c)}
               onDelete={() => onDelete(c)}
+              onRefine={onRefine ? () => onRefine(c) : undefined}
             />
           ))}
         </div>

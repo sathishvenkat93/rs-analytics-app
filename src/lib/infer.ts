@@ -4,11 +4,22 @@ export type RawCell = string | number | boolean | Date | null | undefined;
 
 const NUMBER_RE = /^[-+]?[$€£₹¥]?\s*[-+]?(\d{1,3}(,\d{3})+|\d+)?(\.\d+)?\s*%?$/;
 const ISO_DATE_RE = /^\d{4}-\d{1,2}-\d{1,2}([T\s]\d{1,2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}(:?\d{2})?)?)?$/;
+/** Year-month, common in SQL and BI exports: 2025-01 → 2025-01-01. */
+const YEAR_MONTH_RE = /^\d{4}-(0?[1-9]|1[0-2])$/;
 const SLASH_DATE_RE = /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/;
 const MONTH_NAME_RE = /^(\d{1,2}\s)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s,-]+\d{1,4}(,?\s\d{4})?$/i;
 
+/**
+ * Text that means "no value" (the same tokens pandas treats as missing by default).
+ * Case-sensitive on purpose: "None" is missing, but "none" may be a real answer.
+ */
+export const NA_TOKENS = new Set(['#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NA', 'NULL', 'NaN', 'None', 'n/a', 'nan', 'null']);
+
 function isBlank(v: RawCell): boolean {
-  return v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+  if (v === null || v === undefined) return true;
+  if (typeof v !== 'string') return false;
+  const t = v.trim();
+  return t === '' || NA_TOKENS.has(t);
 }
 
 export function parseNumber(v: RawCell): number | null {
@@ -36,6 +47,10 @@ export function parseDate(v: RawCell): string | null {
   }
   if (typeof v !== 'string') return null;
   const s = v.trim();
+  if (YEAR_MONTH_RE.test(s)) {
+    const [y, m] = s.split('-').map(Number);
+    return `${y}-${pad(m)}-01`;
+  }
   if (!(ISO_DATE_RE.test(s) || SLASH_DATE_RE.test(s) || MONTH_NAME_RE.test(s))) return null;
   if (ISO_DATE_RE.test(s)) {
     const [y, m, d] = s.slice(0, 10).split('-').map(Number);
